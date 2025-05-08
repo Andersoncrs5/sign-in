@@ -1,17 +1,34 @@
 package com.signin.signin.Services;
 
+import com.signin.signin.Config.JwtService;
 import com.signin.signin.Models.UserModel;
 import com.signin.signin.Repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.Map;
 import java.util.Optional;
 @Service
 public class UserService {
+
+    @Autowired
+    private AuthenticationManager authManager;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Autowired
     private UserRepository userRepository;
@@ -54,43 +71,30 @@ public class UserService {
         }
     }
 
-    public ResponseEntity<?> loginUser(UserModel user) {
+    public ResponseEntity<?> loginUser(String email, String password) {
+        if (email == null || password == null || email.isBlank() || password.isBlank()) {
+            return ResponseEntity.badRequest().body("Email and password are required.");
+        }
+
         try {
-            if (user == null || user.getEmail().isEmpty() || user.getPassword().isEmpty()) {
-                return ResponseEntity.badRequest().body("Invalid user data: email and password fields are required.");
-            }
+            Authentication authentication = authManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, password)
+            );
 
-            UserModel userFound = userRepository.findByEmail(user.getEmail());
+            String token = jwtService.generateToken((UserDetails) authentication.getPrincipal());
+            return ResponseEntity.ok(Map.of("token", token));
 
-            if (userFound == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
-            }
-
-            BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-            if (!passwordEncoder.matches(user.getPassword(), userFound.getPassword())) {
-                return ResponseEntity.badRequest().body("Invalid password");
-            }
-
-
-            return ResponseEntity.ok(userFound);
-        } catch (Exception e) {
-            System.err.println("Error logging in: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred while logging in.");
+        } catch (AuthenticationException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials.");
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An internal error occurred.");
         }
     }
 
     @Transactional
     public ResponseEntity<?> deleteUser(Long id) {
         try {
-            if (id == null || id == 0) {
-                return ResponseEntity.badRequest().body("Invalid ID: cannot be null or 0.");
-            }
-
-            Optional<UserModel> user = userRepository.findById(id);
-
-            if (user.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
-            }
+            this.findUser(id);
 
             userRepository.deleteUser(id);
             return ResponseEntity.ok("User deleted successfully");
@@ -103,9 +107,7 @@ public class UserService {
     @Transactional
     public ResponseEntity<?> updateUser(UserModel user) {
         try {
-            System.out.println("Updating user...");
             if (user == null || user.getName().isEmpty() || user.getEmail().isEmpty() || user.getPassword().isEmpty()) {
-                System.out.println("Invalid user data: all fields are required.");
                 return ResponseEntity.badRequest().body("Invalid user data: all fields are required.");
             }
 

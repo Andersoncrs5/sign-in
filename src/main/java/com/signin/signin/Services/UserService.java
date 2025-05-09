@@ -81,10 +81,18 @@ public class UserService {
                     new UsernamePasswordAuthenticationToken(email, password)
             );
 
-            String token = jwtService.generateToken((UserDetails) authentication.getPrincipal());
+            Optional<UserModel> optionalUser = this.userRepository.findByEmail(email);
+
+            if (optionalUser.isEmpty())
+                return new ResponseEntity<>("",HttpStatus.UNAUTHORIZED);
+
+            UserModel user = optionalUser.get();
+
+            String token = jwtService.generateToken((UserDetails) authentication.getPrincipal(), user.getId());
             return ResponseEntity.ok(Map.of("token", token));
 
         } catch (AuthenticationException ex) {
+            System.out.println(ex);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials.");
         } catch (Exception ex) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An internal error occurred.");
@@ -105,13 +113,13 @@ public class UserService {
     }
 
     @Transactional
-    public ResponseEntity<?> updateUser(UserModel user) {
+    public ResponseEntity<?> updateUser(UserModel user, Long id) {
         try {
-            if (user == null || user.getName().isEmpty() || user.getEmail().isEmpty() || user.getPassword().isEmpty()) {
-                return ResponseEntity.badRequest().body("Invalid user data: all fields are required.");
+            if (id == null) {
+                return ResponseEntity.badRequest().body("Invalid id");
             }
 
-            Optional<UserModel> userOld = userRepository.findById(user.getId());
+            Optional<UserModel> userOld = userRepository.findById(id);
 
             if (userOld.isEmpty()) {
                 System.out.println("User not found");
@@ -128,10 +136,8 @@ public class UserService {
 
             userRepository.save(updatedUser);
 
-            System.out.println("User updated with successed!!");
             return ResponseEntity.ok("User updated successfully");
         } catch (Exception e) {
-            System.err.println("Error updating user: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred while updating the user.");
         }
     }

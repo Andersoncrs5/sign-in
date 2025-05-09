@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @OpenAPIDefinition(
-        info = @Info(title = "Sua API", version = "1.0", description = "API com JWT"),
+        info = @Info(title = "SignIn", version = "1.0", description = "System of sign in with JWT"),
         security = @SecurityRequirement(name = "bearerAuth")
 )
 public class SwaggerConfig {

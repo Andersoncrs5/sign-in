@@ -13,8 +13,6 @@ import java.util.Date;
 @Component
 public class JwtService  {
 
-    private final String SECRET_KEY = "123456765432345678996487863866756789678743653675167";
-
     public String generateToken(UserDetails userDetails, Long id) {
         return Jwts.builder()
                 .setSubject(userDetails.getUsername())
@@ -26,6 +24,7 @@ public class JwtService  {
     }
 
     private Key getKey() {
+        String SECRET_KEY = "123456765432345678996487863866756789678743653675167";
         return Keys.hmacShaKeyFor(SECRET_KEY.getBytes());
     }
 
